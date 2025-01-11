@@ -1,6 +1,7 @@
 package frc.robot.subsystems;
 
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.LimelightHelpers;
@@ -30,6 +31,8 @@ public class Limelight extends SubsystemBase {
     private final String name;
     private boolean isEnabled;
     private boolean cropEnabled;
+    private double lastPoseEstimate = 0;
+    private int counter = 0;
 
     public Limelight(LimelightType limelightType, String name, boolean isEnabled, boolean cropEnabled) {
         this.limelightType = limelightType;
@@ -58,48 +61,66 @@ public class Limelight extends SubsystemBase {
     }
 
     public void smartCrop() {
-        RawFiducial[] targets = LimelightHelpers.getRawFiducials(name);
-        boolean useCrop = true;
+        LimelightHelpers.PoseEstimate poseEstimate = LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2(name);
 
-        Translation2d[] targetTranslations = new Translation2d[targets.length];
-        double area = 0;
+        if (lastPoseEstimate != poseEstimate.timestampSeconds) {
+            counter = ++counter % 50;
+            if(counter > 45){
+                restoreCrop();
+                return;
+            }
+            lastPoseEstimate = poseEstimate.timestampSeconds;
+            RawFiducial[] targets = LimelightHelpers.getRawFiducials(name);
+            boolean useCrop = true;
 
-        for (int i = 0; i < targetTranslations.length; ++i) {
-            targetTranslations[i] = new Translation2d(targets[i].txnc, targets[i].tync);
-            area = Math.max(area, targets[i].ta);
-        }
+            Translation2d[] targetTranslations = new Translation2d[targets.length];
+            double area = 0;
 
-        double xc = 0, yc = 0;
-
-        for (int i = 0; i < targetTranslations.length; ++i) {
-            xc += targetTranslations[i].getX();
-            yc += targetTranslations[i].getY();
-        }
-
-        xc /= targetTranslations.length;
-        yc /= targetTranslations.length;
-
-        xc = xc / (limelightType.HFOV / 2);
-        yc = yc / (limelightType.VFOV / 2);
-
-        double borderx = 0, bordery = 0;
-
-        if (targetTranslations.length > 1) {
-            borderx = (area + 0.75) * 0.22 * targetTranslations.length;
-            bordery = (area + 0.5) * 0.22 * targetTranslations.length;
-        } else {
-            if (area < 0.015) {
-                borderx = 0.25;
-                bordery = 0.25;
-            } else {
-                borderx = 0.5;
-                bordery = 0.5;
+            for (int i = 0; i < targetTranslations.length; ++i) {
+                targetTranslations[i] = new Translation2d(targets[i].txnc, targets[i].tync);
+                area = Math.max(area, targets[i].ta);
             }
 
-        }
+            double xc = 0, yc = 0;
 
-        if (useCrop) {
-            LimelightHelpers.setCropWindow(name, xc - borderx, xc + borderx, yc - bordery, yc + bordery);
+            for (int i = 0; i < targetTranslations.length; ++i) {
+                xc += targetTranslations[i].getX();
+                yc += targetTranslations[i].getY();
+            }
+
+            xc /= targetTranslations.length;
+            yc /= targetTranslations.length;
+
+            xc = xc / (limelightType.HFOV / 2);
+            yc = yc / (limelightType.VFOV / 2);
+
+            double borderx = 0, bordery = 0;
+
+            if (targetTranslations.length > 1) { // for more than one tag
+                borderx = (area + 0.75) * 0.22 * targetTranslations.length + .2;
+                bordery = (area + 0.5) * 0.22 * targetTranslations.length;
+            } 
+            //todo optimize
+            /*else {
+                if (area < 0.015) {
+                    borderx = 0.5;
+                    bordery = 0.25;
+                } 
+                else if (area > .005){
+                    borderx = 1;
+                    bordery = 0.5;
+                }
+                else {
+                    borderx = 0.5;
+                    bordery = 0.5;
+                }
+            }
+            */
+            borderx = 1;
+            bordery = .25;
+            if (useCrop) {
+                LimelightHelpers.setCropWindow(name, xc - borderx, xc + borderx, yc - bordery, yc + bordery);
+            }
         }
     }
 
@@ -107,6 +128,7 @@ public class Limelight extends SubsystemBase {
         LimelightHelpers.setCropWindow(name, -1, 1, -1, 1);
     }
 
+    
     public void setEnabled(boolean enabled) {
         this.isEnabled = enabled;
     }
