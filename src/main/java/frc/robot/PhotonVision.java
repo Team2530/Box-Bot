@@ -27,7 +27,7 @@ import org.photonvision.PhotonUtils;
 
 public class PhotonVision {
 
-    public boolean validateTarget(PhotonTrackedTarget target) {
+    public static boolean validateTarget(PhotonTrackedTarget target) {
         if (target.getPoseAmbiguity() > 0.2)
             return false; // if the target is quite ambiguous, reject that type type
         if (target.getDetectedObjectConfidence() < 0)
@@ -39,12 +39,12 @@ public class PhotonVision {
     /**
      * This code does very coding code code things and stuff and
      */
-    public Transform3d getCameraToRobotPose(String name) {
+    public static Transform3d getCameraToRobotPose(String name) {
         // placeholder placeholder
         return new Transform3d();
     }
 
-    public Pose3d getVisionPoseEstimate(PhotonCamera[] cameras, AHRS navX) {
+    public static Pose3d getVisionPoseEstimate(PhotonCamera[] cameras, AHRS navX) {
         Pose3d weightedPose = new Pose3d(0, 0, 0, new Rotation3d());
         double totalWeight = 0;
         DoubleFunction<Double> weightFunction = (value) -> Math.pow(1 - value, 3);

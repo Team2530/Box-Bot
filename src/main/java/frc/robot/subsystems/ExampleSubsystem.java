@@ -4,12 +4,22 @@
 
 package frc.robot.subsystems;
 
+import com.studica.frc.AHRS;
+
+
+import org.photonvision.PhotonCamera;
+
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+
+import frc.robot.PhotonVision;
 
 public class ExampleSubsystem extends SubsystemBase {
   /** Creates a new ExampleSubsystem. */
   public ExampleSubsystem() {}
+  PhotonCamera[] cameras = {new PhotonCamera("photonvision")};
+  public final AHRS navX = new AHRS(AHRS.NavXComType.kMXP_SPI);
+
 
   /**
    * Example command factory method.
@@ -37,7 +47,10 @@ public class ExampleSubsystem extends SubsystemBase {
 
   @Override
   public void periodic() {
-    // This method will be called once per scheduler run
+    System.out.println(PhotonVision.getVisionPoseEstimate(cameras, navX));
+    System.err.println(PhotonVision.getVisionPoseEstimate(cameras, navX));
+    System.out.println("hi");
+
   }
 
   @Override
