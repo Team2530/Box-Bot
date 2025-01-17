@@ -30,6 +30,7 @@ public class LEDSubsystem extends SubsystemBase {
 
         tick+=1;
 
+        push();
         led.setData(ledBuffer);
     }
 
