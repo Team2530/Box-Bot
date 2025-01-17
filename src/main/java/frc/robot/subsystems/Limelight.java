@@ -65,14 +65,13 @@ public class Limelight extends SubsystemBase {
 
         if (lastPoseEstimate != poseEstimate.timestampSeconds) {
             counter = ++counter % 50;
-            if(counter > 45){
-                restoreCrop();
+            if(counter > 45){ // For every 5 frames, out of 50, check the entire screen for apriltags
+                restoreCrop(); // 45 will be cropped onto whichever limelights they find
                 return;
             }
             lastPoseEstimate = poseEstimate.timestampSeconds;
             RawFiducial[] targets = LimelightHelpers.getRawFiducials(name);
             boolean useCrop = true;
-
             Translation2d[] targetTranslations = new Translation2d[targets.length];
             double area = 0;
 
