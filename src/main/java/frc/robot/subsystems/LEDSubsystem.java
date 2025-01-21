@@ -31,8 +31,8 @@ public class LEDSubsystem extends SubsystemBase {
         //}
         tick+=1;
         //System.out.println(tick+" r: ");
-        rainbow(tick,0.8,1,0);
-        //rainbow2(tick,0.01);
+        //rainbow(tick,0.8,1,0);
+        sineColors(new Color[] {Color.kRed,Color.kBlue}, tick, 0.2, 5);
         
         pushData();
         led.setData(ledBuffer);
@@ -48,21 +48,6 @@ public class LEDSubsystem extends SubsystemBase {
         //setAllDataRGBW(rc,0);
     }
     /* Old Periodic */
-    void rainbow1(int tick) {
-        for (int i = 0; i < ledBuffer.getLength(); ++i) {
-            int hue = (tick + i * 180 / ledBuffer.getLength()) % 180;
-            ledBuffer.setHSV(i, hue, 255, 128);
-        }
-    }
-    public void rainbow2(int tick, double difference) {
-        tick*=0.1;
-        for (int i=0;i<ledCount-1;i++) {
-            double j = i*difference;
-            setDataRGBW(i,
-            (int) (Math.sin(tick+j)*255),
-            (int) (Math.sin(tick+2*j)*255),
-            (int) (Math.sin(tick+3*j)*255),0);}
-    }
     boolean toFlash(int tick, int period) {
         int flash = tick % period;
         return flash < period/2;
@@ -72,14 +57,26 @@ public class LEDSubsystem extends SubsystemBase {
         double v = ((Timer.getFPGATimestamp()) % period) / period;
         return v < 0.5;
     }
-    void sineColor(int r, int g, int b, double waves, double center, double amp, double tscroll) {
-        double lambda = ledBuffer.getLength() / (2 * waves);
-        for (int i = 0; i < 20; ++i) {
-            double fx = Math.cos((i / lambda) * Math.PI + Timer.getFPGATimestamp() * tscroll * Math.PI) * amp + center;
-            setDataRGBW(i,
-                    Math.min((int) (r * fx), 255),
-                    Math.min((int) (g * fx), 255),
-                    Math.min((int) (b * fx), 255),0);
+    
+    void sineColors(Color[] colors, int tick, double speed, int mult) {
+        int colorCount = colors.length;
+        for (int i=0; i < ledCount; i++) {
+            double colorLength = ledCount / (mult + 1); // Length of One Color (in LEDs)
+
+            double ratio = (1-Math.cos(Math.PI * ((i+(tick*speed)) % colorLength)/colorLength))/2;
+            int colorIndex = (int) Math.floor(((i+(tick*speed)) % (colorLength * colorCount))/colorLength);
+
+            Color startColor = colors[colorIndex];
+            Color endColor = colors[(colorIndex + 1) % colorCount];
+
+            int r = (int)((startColor.red * (1 - ratio) + endColor.red * ratio)*255);
+            int g = (int)((startColor.green * (1 - ratio) + endColor.green * ratio)*255);
+            int b = (int)((startColor.blue * (1 - ratio) + endColor.blue * ratio)*255);
+            //if ((tick%60)==0 && (i%20)==0) {
+                //out("Index:"+i+" ratio:"+ratio);
+                //out("Index:"+i+" cIndex:"+colorIndex+" c:"+r+" "+g+" "+b);
+            //}
+            setDataRGBW(i, r, g, b, 0);
         }
     }
 
@@ -101,18 +98,16 @@ public class LEDSubsystem extends SubsystemBase {
         int trueIndex = index + (int) Math.floor(index/3); // Index offset ONLY FOR ENCODING INTO GRBGRBGRBGRB
         int[] prevRGBW = getDataRGBW(index);
         if (index>0) {prevRGBW = getDataRGBW(index-1);}
-
         int[] nextRGBW = getDataRGBW(index);
         if (!(index+1>ledCount)) {nextRGBW=getDataRGBW(index+1);}
-
         /** HOW TO READ R G B comments
          * I will use C (Current) and V (Value) as example
          * C=C: Use C to output as C. basically just normal setRGB
          * C=V: Use the V to output as C. for example G=W (W is the input value from here)
          * C=+V: Use the next index's V to output
          * C=-V: Use the previous index's V to output.
-         * Lowercase: Previous or After's
          * 
+         * Lowercase: Previous or After's
          * Cases:           case0 case1 case2 case0
          * YOUR input:      RGB W|RG BW|R GBW|RGBW|... 
          * case 0:          RGB g Wr          RGB    
@@ -125,7 +120,29 @@ public class LEDSubsystem extends SubsystemBase {
          * WPILIB sends:    GRB|G RB|GR B|GRB|GRB|...
          * output:          GRB W|GR BW|G RBW|GRBW|...
          */
-
+        switch (index % 3) {
+            case 0:
+                setRGB(trueIndex, R, G, B); // R=R G=G B=B
+                setRGB(trueIndex+1, nextRGBW[1], W, nextRGBW[0]); // R<+G G<W B<+R
+                break;
+            case 1:
+                setRGB(trueIndex, G, prevRGBW[3], R); // R<G G<-W B<R
+                setRGB(trueIndex+1, W, B, nextRGBW[1]); // R=W G=B B=+G FOR B, REMEMBER THAT THE INDEX is 1
+                break;
+            case 2:
+                setRGB(trueIndex, prevRGBW[3], prevRGBW[2], G); // R=-W G=-B B=G
+                setRGB(trueIndex+1, B, R, W); // R=B G=R B=W
+                break;
+            default:break;
+        }
+    }
+    public void setRGBW(int index, Color color, int W) {
+        int R=(int)color.red*255; int G=(int)color.green*255; int B=(int)color.blue*255;
+        int trueIndex = index + (int) Math.floor(index/3); // Index offset ONLY FOR ENCODING INTO GRBGRBGRBGRB
+        int[] prevRGBW = getDataRGBW(index);
+        if (index>0) {prevRGBW = getDataRGBW(index-1);}
+        int[] nextRGBW = getDataRGBW(index);
+        if (!(index+1>ledCount)) {nextRGBW=getDataRGBW(index+1);}
         switch (index % 3) {
             case 0:
                 setRGB(trueIndex, R, G, B); // R=R G=G B=B
@@ -144,13 +161,8 @@ public class LEDSubsystem extends SubsystemBase {
     }
 
     /* Quick */
-    void setAllSolid(int r, int g, int b) {
-        for (int i = 0; i < ledBuffer.getLength(); ++i)
-            setRGB(i, r, g, b);
-    }
-    void setAllSolid(Color color) {
-        for (int i = 0; i < ledBuffer.getLength(); ++i)
-            setColor(i, color);
+    void out(Object msg) {
+        System.out.println(msg);
     }
 
     public void pushData() { // This sets the RGBW
@@ -166,5 +178,4 @@ public class LEDSubsystem extends SubsystemBase {
         ledBuffer.setRGB(n, (int) (color.red * 255), (int) (color.green * 255), (int) (color.blue * 255));}
     public void setHSV(int n, int h, int s, int v) {
         ledBuffer.setHSV(n, h, s, v);}
-    public void off() {setAllSolid(0, 0, 0);}
 }
