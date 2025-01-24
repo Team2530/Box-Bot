@@ -23,7 +23,7 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 public class RobotContainer {
   // The robot's subsystems and commands are defined here...
   private final ExampleSubsystem m_exampleSubsystem = new ExampleSubsystem();
-  private final LEDSubsystem leds = new LEDSubsystem();
+  private final LEDSubsystem leds = new LEDSubsystem(149);
 
   private final LimelightContainer limelightContainer = new LimelightContainer(new String[] {"limelight-three", "limelight"}, true);
 

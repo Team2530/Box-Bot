@@ -1,5 +1,6 @@
 package frc.robot.subsystems;
 
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.wpilibj.AddressableLED;
 import edu.wpi.first.wpilibj.AddressableLEDBuffer;
 import edu.wpi.first.wpilibj.Timer;
@@ -15,9 +16,9 @@ public class LEDSubsystem extends SubsystemBase {
 
     private int tick = 0;
 
-    public LEDSubsystem() {
+    public LEDSubsystem(int ledCount) {
         led = new AddressableLED(8);
-        ledCount = 80;
+            this.ledCount = ledCount;
         RGBWData = new int[ledCount * 4];
         ledBuffer = new AddressableLEDBuffer(ledCount+(int) Math.floor(ledCount/3));
         led.setLength(ledBuffer.getLength());
@@ -27,12 +28,18 @@ public class LEDSubsystem extends SubsystemBase {
     @Override
     public void periodic() {
         //for (int i=0;i<ledCount-1;i++) {
-        //    setDataRGBW(i,0,255,0,0);
+        //    setDataRGBW(i,0,0,(int) (125*(Math.sin(i)+1)/2),0);
         //}
         tick+=1;
         //System.out.println(tick+" r: ");
         //rainbow(tick,0.8,1,0);
-        sineColors(new Color[] {Color.kRed,Color.kBlue}, tick, 0.2, 5);
+        sineColors(new Color[] {
+            new Color(10,255,0),
+            new Color(0, 10, 255)
+            ,new Color(255,0,10)
+        }, 
+            tick, 1, 1);
+        //sinColor(255, 30, 0, 2, 0.5, 0.5, 5);
         
         pushData();
         led.setData(ledBuffer);
@@ -45,7 +52,45 @@ public class LEDSubsystem extends SubsystemBase {
             Color c = Color.fromHSV((int) (rainbow+(i*change) % 180), 255, 255);
             setDataRGBW(i, (int) (c.red*255), (int) (c.green*255), (int) (c.blue*255), w);
         }
-        //setAllDataRGBW(rc,0);
+    }
+    void sineColors(Color[] colors, int tick, double speed, int mult) {
+        int colorCount = colors.length;
+        for (int i=0; i < ledCount; i++) {
+            double colorLength = ledCount / (mult + 1); // Length of One Color (in LEDs)
+
+            double ratio = (1-Math.cos(Math.PI * ((i+(tick*speed)) % colorLength)/colorLength))/2; // Cosine Ratio
+            int colorIndex = (int) Math.floor(((i+(tick*speed)) % (colorLength * colorCount))/colorLength); // ColorIndex
+
+            Color startColor = colors[colorIndex];
+            Color endColor = colors[(colorIndex + 1) % colorCount];
+
+            int r = (int)((startColor.red * (1 - ratio) + (endColor.red * ratio))*255);
+            int g = (int)((startColor.green * (1 - ratio) + (endColor.green * ratio))*255);
+            int b = (int)((startColor.blue * (1 - ratio) + (endColor.blue * ratio))*255);
+            //if ((tick%60)==0 && (i%20)==0) {
+                //out("Index:"+i+" ratio:"+ratio);
+                //out("Index:"+i+" cIndex:"+colorIndex+" c:"+r+" "+g+" "+b);
+            //}
+            setDataRGBW(i, r, g, b, 0);
+        }
+    }
+    void linColors(Color[] colors, int tick, int mult, double speed) {
+        int colorCount = colors.length;
+        for (int i=0; i < ledCount; i++) {
+            double colorLength = ledCount / (mult+1);
+
+            double ratio = ((i+(tick*speed)) % colorLength)/colorLength;
+            int colorIndex = (int) Math.floor(((i+(tick*speed))%(colorLength*colorCount))/colorLength);
+
+            Color startColor = colors[colorIndex];
+            Color endColor = colors[(colorIndex + 1) % colorCount];
+
+            int r = (int)((startColor.red*(1-ratio) + (endColor.red*ratio))*255);
+            int g = (int)((startColor.green*(1-ratio) + (endColor.green*ratio))*255);
+            int b = (int)((startColor.blue*(1-ratio) + (endColor.blue*ratio))*255);
+
+            setDataRGBW(i,r,g,b,0);
+        }
     }
     /* Old Periodic */
     boolean toFlash(int tick, int period) {
@@ -57,26 +102,14 @@ public class LEDSubsystem extends SubsystemBase {
         double v = ((Timer.getFPGATimestamp()) % period) / period;
         return v < 0.5;
     }
-    
-    void sineColors(Color[] colors, int tick, double speed, int mult) {
-        int colorCount = colors.length;
-        for (int i=0; i < ledCount; i++) {
-            double colorLength = ledCount / (mult + 1); // Length of One Color (in LEDs)
-
-            double ratio = (1-Math.cos(Math.PI * ((i+(tick*speed)) % colorLength)/colorLength))/2;
-            int colorIndex = (int) Math.floor(((i+(tick*speed)) % (colorLength * colorCount))/colorLength);
-
-            Color startColor = colors[colorIndex];
-            Color endColor = colors[(colorIndex + 1) % colorCount];
-
-            int r = (int)((startColor.red * (1 - ratio) + endColor.red * ratio)*255);
-            int g = (int)((startColor.green * (1 - ratio) + endColor.green * ratio)*255);
-            int b = (int)((startColor.blue * (1 - ratio) + endColor.blue * ratio)*255);
-            //if ((tick%60)==0 && (i%20)==0) {
-                //out("Index:"+i+" ratio:"+ratio);
-                //out("Index:"+i+" cIndex:"+colorIndex+" c:"+r+" "+g+" "+b);
-            //}
-            setDataRGBW(i, r, g, b, 0);
+    void sinColor(int r, int g, int b, double waves, double center, double amp, double tscroll) {
+        double lambda = ledBuffer.getLength() / (2 * waves);
+        for (int i = 0; i < 20; ++i) {
+            double fx = Math.cos((i / lambda) * Math.PI + tick*0.01 * tscroll * Math.PI) * amp + center;
+            setDataRGBW(i,
+                    MathUtil.clamp((int) (r * fx), 0, 255),
+                    MathUtil.clamp((int) (g * fx), 0, 255),
+                    MathUtil.clamp((int) (b * fx), 0, 255),0);
         }
     }
 
@@ -94,8 +127,14 @@ public class LEDSubsystem extends SubsystemBase {
         RGBWData[(index * 4) + 2] = B;
         RGBWData[(index * 4) + 3] = W;
     }
+    public void setDataRGBW(int index, Color color, int W) {
+        RGBWData[(index * 4)] = (int) (color.red*255);
+        RGBWData[(index * 4) + 1] = (int) (color.green*255);
+        RGBWData[(index * 4) + 2] = (int) (color.blue*255);
+        RGBWData[(index * 4) + 3] = W;
+    }
     public void setRGBW(int index, int R, int G, int B, int W) {
-        int trueIndex = index + (int) Math.floor(index/3); // Index offset ONLY FOR ENCODING INTO GRBGRBGRBGRB
+        int trueIndex = index + (int) Math.floor(index/3); // Index offset ONLY FOR ENCODING INTO GRB
         int[] prevRGBW = getDataRGBW(index);
         if (index>0) {prevRGBW = getDataRGBW(index-1);}
         int[] nextRGBW = getDataRGBW(index);
@@ -122,16 +161,16 @@ public class LEDSubsystem extends SubsystemBase {
          */
         switch (index % 3) {
             case 0:
-                setRGB(trueIndex, R, G, B); // R=R G=G B=B
-                setRGB(trueIndex+1, nextRGBW[1], W, nextRGBW[0]); // R<+G G<W B<+R
+                setRGB(trueIndex, R, G, B); // R G B
+                setRGB(trueIndex+1, nextRGBW[1], W, nextRGBW[0]); // +g W +r
                 break;
             case 1:
-                setRGB(trueIndex, G, prevRGBW[3], R); // R<G G<-W B<R
-                setRGB(trueIndex+1, W, B, nextRGBW[1]); // R=W G=B B=+G FOR B, REMEMBER THAT THE INDEX is 1
+                setRGB(trueIndex, G, prevRGBW[3], R); // G -w R
+                setRGB(trueIndex+1, W, B, nextRGBW[1]); // W B +g FOR B, REMEMBER THAT THE INDEX is 1
                 break;
             case 2:
-                setRGB(trueIndex, prevRGBW[3], prevRGBW[2], G); // R=-W G=-B B=G
-                setRGB(trueIndex+1, B, R, W); // R=B G=R B=W
+                setRGB(trueIndex, prevRGBW[3], prevRGBW[2], G); // -w -b G
+                setRGB(trueIndex+1, B, R, W); // B R W
                 break;
             default:break;
         }
@@ -161,6 +200,11 @@ public class LEDSubsystem extends SubsystemBase {
     }
 
     /* Quick */
+    void setAllDataRGBW(int r, int b, int g, int w) {
+        for (int i=0;i<ledCount-1;i++) {
+            setDataRGBW(i,r,g,b,w);
+        }
+    }
     void out(Object msg) {
         System.out.println(msg);
     }
