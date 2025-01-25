@@ -1,8 +1,11 @@
 package frc.robot.subsystems;
 
+import java.nio.channels.ServerSocketChannel;
+
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.wpilibj.AddressableLED;
 import edu.wpi.first.wpilibj.AddressableLEDBuffer;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj.util.Color;
@@ -13,6 +16,8 @@ public class LEDSubsystem extends SubsystemBase {
 
     int[] RGBWData;
     int ledCount;
+
+    public String execute = "";
 
     private int tick = 0;
 
@@ -30,19 +35,55 @@ public class LEDSubsystem extends SubsystemBase {
         //for (int i=0;i<ledCount-1;i++) {
         //    setDataRGBW(i,0,0,(int) (125*(Math.sin(i)+1)/2),0);
         //}
+        if (DriverStation.isTeleopEnabled()) {
+            execute = "custom";
+        } else if (DriverStation.isAutonomousEnabled()) {
+            execute = "sine";
+        } else if (DriverStation.isTest()) {
+            execute = "none";
+        }
+
         tick+=1;
-        //System.out.println(tick+" r: ");
-        //rainbow(tick,0.8,1,0);
-        sineColors(new Color[] {
-            new Color(10,255,0),
-            new Color(0, 10, 255)
-            ,new Color(255,0,10)
-        }, 
-            tick, 1, 1);
-        //sinColor(255, 30, 0, 2, 0.5, 0.5, 5);
-        
+        switch (execute) {
+            case "rainbow":
+                rainbow(tick,0.8,1,0); break;
+            case "sine":
+                sineColors(new Color[] {
+                    new Color(10,255,0),
+                    new Color(0, 10, 255)
+                   ,new Color(255,0,10)
+                    }, tick, 1, 1); break;
+            case "custom":
+                customPattern(new double[] {
+                    1,1,1,1,1,0,0,0,0,0
+                }, new Color[] {
+                    Color.kBlue, Color.kCoral, Color.kWhite
+                }, "Sine", 1, tick, 0.1,1);
+            break;
+            default: setAllDataRGBW(0, 0, 0, 0);break;
+        }
         pushData();
         led.setData(ledBuffer);
+    }
+
+    /* Shaders */
+    Color getMixedColor(Color color1, Color color2, double ratio) {
+        double r = (color1.red * (1 - ratio) + (color2.red * ratio));
+        double g = (color1.green * (1 - ratio) + (color2.green * ratio));
+        double b = (color1.blue * (1 - ratio) + (color2.blue * ratio));
+        return new Color(r,g,b);
+    }
+    Color getShaderedColor(double ci, Color[] colors, double ratio, double colorLen) {
+        int colorCount = colors.length;
+        int colorIndex = (int) Math.floor((ci % (colorLen * colorCount))/colorLen);
+
+        Color startColor = colors[colorIndex];
+        Color nextColor = colors[(colorIndex + 1) % colorCount];
+
+        double r = (startColor.red * (1 - ratio) + (nextColor.red * ratio));
+        double g = (startColor.green * (1 - ratio) + (nextColor.green * ratio));
+        double b = (startColor.blue * (1 - ratio) + (nextColor.blue * ratio));
+        return new Color(r,g,b);
     }
 
     /* Periodic Funcitons */
@@ -54,42 +95,55 @@ public class LEDSubsystem extends SubsystemBase {
         }
     }
     void sineColors(Color[] colors, int tick, double speed, int mult) {
-        int colorCount = colors.length;
         for (int i=0; i < ledCount; i++) {
-            double colorLength = ledCount / (mult + 1); // Length of One Color (in LEDs)
-
-            double ratio = (1-Math.cos(Math.PI * ((i+(tick*speed)) % colorLength)/colorLength))/2; // Cosine Ratio
-            int colorIndex = (int) Math.floor(((i+(tick*speed)) % (colorLength * colorCount))/colorLength); // ColorIndex
-
-            Color startColor = colors[colorIndex];
-            Color endColor = colors[(colorIndex + 1) % colorCount];
-
-            int r = (int)((startColor.red * (1 - ratio) + (endColor.red * ratio))*255);
-            int g = (int)((startColor.green * (1 - ratio) + (endColor.green * ratio))*255);
-            int b = (int)((startColor.blue * (1 - ratio) + (endColor.blue * ratio))*255);
+            double colorLen = ledCount / (mult + 1); // Length of One Color (in LEDs)
+            double ratio = (1-Math.cos(Math.PI * ((i+(tick*speed)) % colorLen)/colorLen))/2; // Cosine Ratio
             //if ((tick%60)==0 && (i%20)==0) {
                 //out("Index:"+i+" ratio:"+ratio);
                 //out("Index:"+i+" cIndex:"+colorIndex+" c:"+r+" "+g+" "+b);
             //}
-            setDataRGBW(i, r, g, b, 0);
+            setDataRGBW(i, getShaderedColor(i+(tick*speed), colors, ratio, colorLen), 0);
         }
     }
-    void linColors(Color[] colors, int tick, int mult, double speed) {
-        int colorCount = colors.length;
+    void linColors(Color[] colors, int tick, double speed, int mult) {
         for (int i=0; i < ledCount; i++) {
             double colorLength = ledCount / (mult+1);
-
             double ratio = ((i+(tick*speed)) % colorLength)/colorLength;
-            int colorIndex = (int) Math.floor(((i+(tick*speed))%(colorLength*colorCount))/colorLength);
 
-            Color startColor = colors[colorIndex];
-            Color endColor = colors[(colorIndex + 1) % colorCount];
-
-            int r = (int)((startColor.red*(1-ratio) + (endColor.red*ratio))*255);
-            int g = (int)((startColor.green*(1-ratio) + (endColor.green*ratio))*255);
-            int b = (int)((startColor.blue*(1-ratio) + (endColor.blue*ratio))*255);
-
-            setDataRGBW(i,r,g,b,0);
+            setDataRGBW(i,getShaderedColor(i+(tick*speed), colors, ratio, colorLength),0);
+        }
+    }
+    /**
+     * A custom LED pattern with custom colors!
+     * @param pattern Pattern to repeat (0~1) in brightness
+     * @param colors Colors to use
+     * @param shaderType Color Shader to use: Solid Linear Sine
+     */
+    void customPattern(double[] pattern, Color[] colors, String shaderType, int shaderSetting, int tick, double speed, int mult) {
+        int patternLen = pattern.length;
+        for (int i=0;i<ledCount;i++) {
+            double colorMult = pattern[i%patternLen];
+            Color outCol;
+            if (colors.length==1) {
+                outCol = colors[0];
+                if (shaderType == "Sine") {
+                    int colorLength=ledCount/(mult+1);
+                    colorMult*=(1-Math.cos(Math.PI*((i+(tick*speed)%colorLength))/colorLength))/2;
+                }
+            } else {
+                double colorLen = ledCount/(mult+1);
+                double ratio = 0;
+                switch (shaderType) {
+                    case "Linear":
+                        ratio = ((i+(tick*speed)) % colorLen)/(colorLen*shaderSetting); break;
+                    case "Sine":
+                        ratio = (1-Math.cos(Math.PI * ((i+(tick*speed)) % colorLen)/colorLen))/(2*shaderSetting); break;
+                    case "Solid": break; default: break;
+                }
+                outCol = getShaderedColor(i+(tick*speed), colors, ratio, colorLen);
+            }
+            outCol = new Color(outCol.red*colorMult,outCol.green*colorMult,outCol.blue*colorMult);
+            setDataRGBW(i,outCol,0);
         }
     }
     /* Old Periodic */
@@ -201,7 +255,7 @@ public class LEDSubsystem extends SubsystemBase {
 
     /* Quick */
     void setAllDataRGBW(int r, int b, int g, int w) {
-        for (int i=0;i<ledCount-1;i++) {
+        for (int i=0;i<ledCount;i++) {
             setDataRGBW(i,r,g,b,w);
         }
     }
