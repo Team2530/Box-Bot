@@ -16,7 +16,7 @@ public class Limelight extends SubsystemBase {
         LL3(62.5, 48.9),
         LL3G(82, 56.2),
         // TODO: Currently unknown check with LL4
-        LL4(0, 0);
+        LL4(82, 56.2);
 
         private double HFOV;
         private double VFOV;
