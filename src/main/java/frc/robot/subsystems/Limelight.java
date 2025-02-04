@@ -5,6 +5,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.LimelightHelpers;
 import frc.robot.LimelightHelpers.RawFiducial;
+import frc.robot.util.LimelightContainer;
 
 public class Limelight extends SubsystemBase {
     public enum LimelightType {
@@ -54,6 +55,7 @@ public class Limelight extends SubsystemBase {
         }
 
         SmartDashboard.putNumber(name, numTargets());
+        LimelightContainer.estimateSimOdometry();
     }
 
     public int numTargets() {

@@ -23,10 +23,12 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
  */
 public class RobotContainer {
 
-  private static final Limelight LL_A = new Limelight(LimelightType.LL3, "limelight-a", true, true);
-  private static final Limelight LL_B = new Limelight(LimelightType.LL3, "limelight-b", true, true);
+    private static final Limelight LL_FR = new Limelight(LimelightType.LL4, "limelight-fr", true, true);
+    private static final Limelight LL_FL = new Limelight(LimelightType.LL4, "limelight-fl", true, true);
+    private static final Limelight LL_BR  = new Limelight(LimelightType.LL4, "limelight-br", true, true);
+    private static final Limelight LL_BL = new Limelight(LimelightType.LL4, "limelight-bl", true, true);
 
-  public static final LimelightContainer LLContainer = new LimelightContainer(LL_A, LL_B);
+    public static final LimelightContainer LLContainer = new LimelightContainer(LL_FR, LL_FL, LL_BR, LL_BL);
 
   // Replace with CommandPS4Controller or CommandJoystick if needed
   private final CommandXboxController m_driverController = new CommandXboxController(
